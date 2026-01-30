@@ -3,45 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pulizia Totale Audio PRO - Elaborazione Sequenziale</title>
+    <title>Pulizia Audio - Calcolo Fascicoli</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx@8.2.2/build/index.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans">
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
     <div class="max-w-4xl mx-auto py-12 px-4">
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div class="bg-blue-600 p-6 text-white text-center">
-                <h1 class="text-2xl font-bold">Pulizia Totale Audio PRO</h1>
-                <p class="text-blue-100 opacity-90">Fase 1: Estrazione Tabelle | Fase 2: Formattazione Avanzata</p>
+        
+        <!-- Intestazione -->
+        <div class="bg-white rounded-t-xl shadow-sm p-8 border-b border-gray-100">
+            <h1 class="text-3xl font-bold text-blue-700">Elaborazione Testi & Fascicoli</h1>
+            <p class="text-gray-500 mt-2">Estrae la colonna "Audio", pulisce la formattazione e calcola i fascicoli.</p>
+        </div>
+
+        <!-- Area Statistiche (Inizialmente nascosta) -->
+        <div id="stats-panel" class="hidden bg-blue-50 p-6 border-b border-blue-100 flex justify-around items-center text-center animate-fade-in">
+            <div>
+                <p class="text-sm uppercase tracking-wide text-blue-600 font-semibold">Parole Totali</p>
+                <p id="word-count-display" class="text-3xl font-bold text-blue-900">0</p>
             </div>
-
-            <div class="p-8">
-                <div id="drop-zone" class="border-3 border-dashed border-gray-200 rounded-lg p-10 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                    <input type="file" id="file-input" class="hidden" accept=".docx">
-                    <div class="space-y-4">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <div class="text-lg font-medium text-gray-700" id="file-name">Trascina il file .docx qui</div>
-                        <ul class="text-sm text-left inline-block text-gray-500 list-disc space-y-1 mt-2">
-                            <li>Numerazione automatica tabelle</li>
-                            <li>A capo immediato dopo <b>:</b> e <b>;</b></li>
-                            <li>Riga vuota ogni 100 parole (al primo punto fermo)</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="mt-8 flex flex-col items-center">
-                    <button id="process-btn" disabled class="bg-blue-600 text-white px-10 py-4 rounded-full font-semibold shadow-md hover:bg-blue-700 disabled:bg-gray-300 transition-all">
-                        Esegui Elaborazione Combinata
-                    </button>
-                    <p id="status-msg" class="mt-4 text-sm font-medium text-gray-600"></p>
-                </div>
+            <div class="h-12 w-px bg-blue-200"></div>
+            <div>
+                <p class="text-sm uppercase tracking-wide text-green-600 font-semibold">Fascicoli (1000/parola)</p>
+                <p id="fascicoli-display" class="text-3xl font-bold text-green-700">0</p>
             </div>
         </div>
+
+        <!-- Area Upload -->
+        <div class="bg-white rounded-b-xl shadow-lg p-8">
+            <div id="drop-zone" class="border-4 border-dashed border-gray-200 rounded-xl p-12 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group">
+                <input type="file" id="file-input" class="hidden" accept=".docx">
+                <div class="space-y-4">
+                    <!-- Icona Documento -->
+                    <svg class="mx-auto h-16 w-16 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    
+                    <div class="text-xl font-medium text-gray-600 group-hover:text-blue-700 transition-colors" id="file-name">
+                        Clicca o trascina qui il file Word
+                    </div>
+                    <p class="text-sm text-gray-400">Il file verrà elaborato localmente.</p>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-center flex-col items-center">
+                <button id="process-btn" disabled class="bg-blue-600 text-white text-lg px-12 py-4 rounded-full font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed transform hover:-translate-y-1 transition-all">
+                    Elabora Documento
+                </button>
+                <p id="status-msg" class="mt-4 text-sm font-medium text-gray-500 min-h-[20px]"></p>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -49,196 +64,184 @@
         const dropZone = document.getElementById('drop-zone');
         const processBtn = document.getElementById('process-btn');
         const statusMsg = document.getElementById('status-msg');
+        const statsPanel = document.getElementById('stats-panel');
+        const wordCountDisplay = document.getElementById('word-count-display');
+        const fascicoliDisplay = document.getElementById('fascicoli-display');
 
         let selectedFile = null;
 
+        // Gestione Selezione File
         fileInput.onchange = (e) => {
             if (e.target.files.length > 0) {
                 selectedFile = e.target.files[0];
                 document.getElementById('file-name').textContent = selectedFile.name;
+                document.getElementById('file-name').classList.add('text-blue-700');
                 processBtn.disabled = false;
+                // Nascondi statistiche vecchie se presenti
+                statsPanel.classList.add('hidden');
+                statusMsg.textContent = "";
             }
         };
 
         dropZone.onclick = () => fileInput.click();
-
-        /**
-         * FASE 2: Processa il testo di una tabella applicando formattazione
-         * Interruzioni su : e ; e nuovi paragrafi ogni 100 parole dopo un punto.
-         */
-        function applyAdvancedFormatting(rawText) {
-            // Prepariamo il testo marcando le interruzioni di riga forzate
-            let textWithMarkers = rawText.replace(/:/g, ":[NEWLINE]").replace(/;/g, ";[NEWLINE]");
-            
-            const words = textWithMarkers.split(/\s+/);
-            const paragraphList = [];
-            let currentBlockWords = [];
-            let wordCounter = 0;
-
-            words.forEach((word) => {
-                currentBlockWords.push(word);
-                wordCounter++;
-
-                // Controlla se è fine frase (punto, esclamativo, interrogativo)
-                // Può includere il marker [NEWLINE] attaccato
-                const isEndOfSentence = word.match(/[.!?](\[NEWLINE\])?$/);
-
-                // Logica: Se > 100 parole e siamo a fine frase, chiudiamo il blocco (paragrafo)
-                if (wordCounter >= 100 && isEndOfSentence) {
-                    paragraphList.push(createDocxParagraph(currentBlockWords));
-                    currentBlockWords = [];
-                    wordCounter = 0;
-                }
-            });
-
-            // Aggiungi l'ultimo blocco rimanente
-            if (currentBlockWords.length > 0) {
-                paragraphList.push(createDocxParagraph(currentBlockWords));
-            }
-
-            return paragraphList;
-        }
-
-        /**
-         * Crea un oggetto docx.Paragraph gestendo i marker [NEWLINE]
-         */
-        function createDocxParagraph(wordsArray) {
-            const runs = [];
-            let tempBuffer = "";
-
-            wordsArray.forEach((word) => {
-                if (word.includes("[NEWLINE]")) {
-                    tempBuffer += word.replace("[NEWLINE]", "") + " ";
-                    runs.push(new docx.TextRun({
-                        text: tempBuffer.trim(),
-                        font: "Calibri",
-                        size: 24
-                    }));
-                    // Inserimento a capo forzato nello stesso paragrafo
-                    runs.push(new docx.TextRun({ break: 1 }));
-                    tempBuffer = "";
-                } else {
-                    tempBuffer += word + " ";
-                }
-            });
-
-            if (tempBuffer.trim().length > 0) {
-                runs.push(new docx.TextRun({
-                    text: tempBuffer.trim(),
-                    font: "Calibri",
-                    size: 24
-                }));
-            }
-
-            return new docx.Paragraph({
-                children: runs,
-                spacing: { before: 240, after: 240, line: 360 }, // Spazio prima/dopo = riga vuota
-                alignment: docx.AlignmentType.JUSTIFIED
-            });
-        }
-
-        processBtn.onclick = async () => {
-            if (!selectedFile) return;
-            statusMsg.textContent = "Lettura file Word...";
-            processBtn.disabled = true;
-
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const arrayBuffer = event.target.result;
-                const options = { ignoreEmptyParagraphs: true, styleMap: ["strike => del"] };
-
-                mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options)
-                    .then(async (result) => {
-                        const parser = new DOMParser();
-                        const docDOM = parser.parseFromString(result.value, 'text/html');
-                        const tables = docDOM.querySelectorAll('table');
-                        
-                        let finalElements = [];
-                        let tableCounter = 0;
-
-                        // FASE 1: Scansione tabelle e unione testo "Audio"
-                        tables.forEach((table) => {
-                            const rows = table.querySelectorAll('tr');
-                            if (rows.length === 0) return;
-
-                            const headerCells = rows[0].querySelectorAll('td, th');
-                            let audioIdx = -1;
-                            headerCells.forEach((cell, i) => {
-                                if (cell.textContent.toLowerCase().trim().includes('audio')) audioIdx = i;
-                            });
-
-                            if (audioIdx !== -1) {
-                                tableCounter++;
-                                
-                                // Titolo Tabella numerato
-                                finalElements.push(new docx.Paragraph({
-                                    children: [new docx.TextRun({ 
-                                        text: `TABELLA ${tableCounter}`, 
-                                        bold: true, 
-                                        size: 32, 
-                                        color: "1D4ED8" 
-                                    })],
-                                    spacing: { before: 400, after: 200 }
-                                }));
-
-                                let combinedTableText = "";
-                                rows.forEach((row, rowIndex) => {
-                                    if (rowIndex === 0) return; // Salta intestazione
-                                    const cells = row.querySelectorAll('td');
-                                    if (cells[audioIdx]) {
-                                        // Rimuovi testo barrato
-                                        let html = cells[audioIdx].innerHTML.replace(/<del>.*?<\/del>/g, '');
-                                        const tmp = document.createElement('div');
-                                        tmp.innerHTML = html;
-                                        combinedTableText += tmp.textContent + " ";
-                                    }
-                                });
-
-                                // FASE 2: Applica formattazione avanzata al testo unito della tabella
-                                const cleanText = combinedTableText.replace(/\s+/g, ' ').trim();
-                                const formattedParagraphs = applyAdvancedFormatting(cleanText);
-                                finalElements = finalElements.concat(formattedParagraphs);
-                            }
-                        });
-
-                        // Testo extra fuori dalle tabelle (se presente)
-                        if (tableCounter === 0) {
-                            let text = result.value.replace(/<del>.*?<\/del>/g, '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
-                            if (text) finalElements = finalElements.concat(applyAdvancedFormatting(text));
-                        }
-
-                        statusMsg.textContent = "Costruzione documento finale...";
-
-                        const doc = new docx.Document({
-                            sections: [{
-                                properties: {},
-                                children: finalElements
-                            }]
-                        });
-
-                        const blob = await docx.Packer.toBlob(doc);
-                        saveAs(blob, `ELABORATO_AUDIO_${selectedFile.name}`);
-                        statusMsg.textContent = "Processo completato!";
-                        processBtn.disabled = false;
-                    })
-                    .catch(err => {
-                        statusMsg.textContent = "Errore: " + err.message;
-                        processBtn.disabled = false;
-                    });
-            };
-            reader.readAsArrayBuffer(selectedFile);
-        };
-
+        
         // Drag & Drop
-        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-50'); };
-        dropZone.ondragleave = () => { dropZone.classList.remove('bg-blue-50'); };
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('border-blue-400', 'bg-blue-50'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('border-blue-400', 'bg-blue-50'); };
         dropZone.ondrop = (e) => {
             e.preventDefault();
-            dropZone.classList.remove('bg-blue-50');
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
             if (e.dataTransfer.files.length > 0) {
                 fileInput.files = e.dataTransfer.files;
                 fileInput.onchange({ target: fileInput });
             }
+        };
+
+        /**
+         * Funzione per "lucidare" il testo.
+         * 1. Rimuove spazi multipli.
+         * 2. Assicura spazio dopo la punteggiatura.
+         * 3. Rende maiuscola la prima lettera dopo i punti.
+         */
+        function cleanAndFormatText(text) {
+            if (!text) return "";
+
+            // 1. Normalizza gli spazi (trasforma tab e doppi spazi in uno singolo)
+            let clean = text.replace(/\s+/g, ' ').trim();
+
+            // 2. Aggiungi spazio dopo la punteggiatura se manca (es: "ciao.come" -> "ciao. come")
+            // Gestisce . , ; : ! ?
+            clean = clean.replace(/([.,:;?!])(?=\S)/g, '$1 ');
+
+            // 3. Maiuscola dopo i terminatori di frase (. ! ?)
+            // La regex cerca un terminatore seguito da spazi opzionali e poi un carattere
+            clean = clean.replace(/(?:^|[.!?]\s+)([a-z])/g, function(match) {
+                return match.toUpperCase();
+            });
+
+            return clean;
+        }
+
+        processBtn.onclick = async () => {
+            if (!selectedFile) return;
+
+            statusMsg.textContent = "Lettura ed elaborazione in corso...";
+            processBtn.disabled = true;
+
+            const reader = new FileReader();
+            
+            reader.onload = async (event) => {
+                const arrayBuffer = event.target.result;
+                
+                // Mappiamo il barrato (strike) al tag <del> per poterlo rimuovere
+                const options = { 
+                    ignoreEmptyParagraphs: true, 
+                    styleMap: ["strike => del"] 
+                };
+
+                mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options)
+                    .then(async (result) => {
+                        // Creiamo un parser HTML per analizzare le tabelle
+                        const parser = new DOMParser();
+                        const docDOM = parser.parseFromString(result.value, 'text/html');
+                        const tables = docDOM.querySelectorAll('table');
+                        
+                        let docParagraphs = [];
+                        let totalWordCount = 0;
+                        let fullTextForStats = "";
+
+                        // Iteriamo su tutte le tabelle trovate
+                        tables.forEach((table) => {
+                            const rows = table.querySelectorAll('tr');
+                            if (rows.length === 0) return;
+
+                            // Cerchiamo la colonna "Audio" nell'intestazione (prima riga)
+                            const headerCells = rows[0].querySelectorAll('td, th');
+                            let audioIdx = -1;
+                            headerCells.forEach((cell, i) => {
+                                if (cell.textContent.toLowerCase().trim().includes('audio')) {
+                                    audioIdx = i;
+                                }
+                            });
+
+                            // Se abbiamo trovato la colonna Audio
+                            if (audioIdx !== -1) {
+                                let tableTextRaw = "";
+
+                                // Estraiamo il testo da tutte le righe (saltando l'intestazione)
+                                rows.forEach((row, rowIndex) => {
+                                    if (rowIndex === 0) return; 
+                                    const cells = row.querySelectorAll('td');
+                                    if (cells[audioIdx]) {
+                                        // Rimuoviamo il testo barrato (<del>)
+                                        let html = cells[audioIdx].innerHTML.replace(/<del>.*?<\/del>/g, '');
+                                        // Convertiamo l'HTML della cella in testo semplice
+                                        const tmp = document.createElement('div');
+                                        tmp.innerHTML = html;
+                                        tableTextRaw += tmp.textContent + " ";
+                                    }
+                                });
+
+                                // Puliamo e formattiamo il testo della tabella
+                                const cleanedTableText = cleanAndFormatText(tableTextRaw);
+
+                                if (cleanedTableText.length > 0) {
+                                    // Aggiungiamo al conteggio parole globale
+                                    fullTextForStats += cleanedTableText + " ";
+
+                                    // Creiamo il paragrafo per il file Word
+                                    // Usiamo TextRun semplice per la massima compatibilità e pulizia
+                                    docParagraphs.push(new docx.Paragraph({
+                                        children: [
+                                            new docx.TextRun({
+                                                text: cleanedTableText,
+                                                font: "Calibri",
+                                                size: 24 // 12pt
+                                            })
+                                        ],
+                                        alignment: docx.AlignmentType.JUSTIFIED,
+                                        spacing: { after: 400 } // Spazio vuoto dopo ogni blocco tabella (circa una riga vuota)
+                                    }));
+                                }
+                            }
+                        });
+
+                        // --- CALCOLO STATISTICHE ---
+                        // Divide per spazi per contare le parole
+                        const wordsArray = fullTextForStats.trim().split(/\s+/).filter(w => w.length > 0);
+                        totalWordCount = wordsArray.length;
+                        // Calcolo fascicoli: Parole / 1000 (con 1 decimale)
+                        const fascicoliCount = (totalWordCount / 1000).toFixed(2);
+
+                        // Aggiorniamo l'interfaccia
+                        wordCountDisplay.textContent = totalWordCount.toLocaleString('it-IT');
+                        fascicoliDisplay.textContent = fascicoliCount.replace('.', ',');
+                        statsPanel.classList.remove('hidden');
+
+                        // --- GENERAZIONE FILE ---
+                        const doc = new docx.Document({
+                            sections: [{
+                                properties: {},
+                                children: docParagraphs
+                            }]
+                        });
+
+                        const blob = await docx.Packer.toBlob(doc);
+                        saveAs(blob, `CLEAN_${selectedFile.name}`);
+                        
+                        statusMsg.textContent = "Elaborazione completata! Il file è stato scaricato.";
+                        statusMsg.className = "mt-4 text-sm font-medium text-green-600";
+                        processBtn.disabled = false;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        statusMsg.textContent = "Errore durante l'elaborazione del file.";
+                        statusMsg.className = "mt-4 text-sm font-medium text-red-600";
+                        processBtn.disabled = false;
+                    });
+            };
+
+            reader.readAsArrayBuffer(selectedFile);
         };
     </script>
 </body>
