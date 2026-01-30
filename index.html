@@ -16,7 +16,7 @@
         <!-- Intestazione -->
         <div class="bg-white rounded-t-xl shadow-sm p-8 border-b border-gray-100">
             <h1 class="text-3xl font-bold text-blue-700">Elaborazione Testi & Fascicoli</h1>
-            <p class="text-gray-500 mt-2">Estrae la colonna "Audio", pulisce la formattazione e calcola i fascicoli.</p>
+            <p class="text-gray-500 mt-2">Correzione Celle Unite: Estrazione precisa colonna "Audio" e calcolo fascicoli.</p>
         </div>
 
         <!-- Area Statistiche (Inizialmente nascosta) -->
@@ -45,7 +45,7 @@
                     <div class="text-xl font-medium text-gray-600 group-hover:text-blue-700 transition-colors" id="file-name">
                         Clicca o trascina qui il file Word
                     </div>
-                    <p class="text-sm text-gray-400">Il file verrà elaborato localmente.</p>
+                    <p class="text-sm text-gray-400">Algoritmo Grid-Mapping attivo per gestione celle unite.</p>
                 </div>
             </div>
 
@@ -77,7 +77,6 @@
                 document.getElementById('file-name').textContent = selectedFile.name;
                 document.getElementById('file-name').classList.add('text-blue-700');
                 processBtn.disabled = false;
-                // Nascondi statistiche vecchie se presenti
                 statsPanel.classList.add('hidden');
                 statusMsg.textContent = "";
             }
@@ -85,7 +84,6 @@
 
         dropZone.onclick = () => fileInput.click();
         
-        // Drag & Drop
         dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('border-blue-400', 'bg-blue-50'); };
         dropZone.ondragleave = () => { dropZone.classList.remove('border-blue-400', 'bg-blue-50'); };
         dropZone.ondrop = (e) => {
@@ -97,43 +95,70 @@
             }
         };
 
-        /**
-         * Funzione per "lucidare" il testo.
-         * 1. Rimuove spazi multipli.
-         * 2. Assicura spazio dopo la punteggiatura.
-         * 3. Rende maiuscola la prima lettera dopo i punti.
-         */
         function cleanAndFormatText(text) {
             if (!text) return "";
-
-            // 1. Normalizza gli spazi (trasforma tab e doppi spazi in uno singolo)
             let clean = text.replace(/\s+/g, ' ').trim();
-
-            // 2. Aggiungi spazio dopo la punteggiatura se manca (es: "ciao.come" -> "ciao. come")
-            // Gestisce . , ; : ! ?
             clean = clean.replace(/([.,:;?!])(?=\S)/g, '$1 ');
-
-            // 3. Maiuscola dopo i terminatori di frase (. ! ?)
-            // La regex cerca un terminatore seguito da spazi opzionali e poi un carattere
             clean = clean.replace(/(?:^|[.!?]\s+)([a-z])/g, function(match) {
                 return match.toUpperCase();
             });
-
             return clean;
+        }
+
+        /**
+         * CORREZIONE CRITICA: Mappa la tabella HTML in una griglia virtuale 2D
+         * gestendo rowspan e colspan per evitare slittamenti di colonna.
+         */
+        function mapTableToGrid(table) {
+            const grid = [];
+            const rows = table.querySelectorAll('tr');
+            
+            rows.forEach((row, rowIndex) => {
+                if (!grid[rowIndex]) grid[rowIndex] = [];
+                
+                const cells = row.querySelectorAll('td, th');
+                let colIndex = 0;
+                
+                cells.forEach(cell => {
+                    // Cerca il primo slot libero nella griglia per questa riga
+                    while (grid[rowIndex][colIndex]) {
+                        colIndex++;
+                    }
+                    
+                    const rowspan = parseInt(cell.getAttribute('rowspan') || 1);
+                    const colspan = parseInt(cell.getAttribute('colspan') || 1);
+                    
+                    // Riempie la griglia per tutte le celle occupate (unite)
+                    for (let r = 0; r < rowspan; r++) {
+                        for (let c = 0; c < colspan; c++) {
+                            const targetRow = rowIndex + r;
+                            const targetCol = colIndex + c;
+                            
+                            if (!grid[targetRow]) grid[targetRow] = [];
+                            
+                            // Salviamo il riferimento alla cella
+                            grid[targetRow][targetCol] = {
+                                element: cell,
+                                isStart: (r === 0 && c === 0) // Marca l'inizio per evitare duplicati
+                            };
+                        }
+                    }
+                    colIndex += colspan;
+                });
+            });
+            return grid;
         }
 
         processBtn.onclick = async () => {
             if (!selectedFile) return;
 
-            statusMsg.textContent = "Lettura ed elaborazione in corso...";
+            statusMsg.textContent = "Analisi struttura tabelle complessa...";
             processBtn.disabled = true;
 
             const reader = new FileReader();
             
             reader.onload = async (event) => {
                 const arrayBuffer = event.target.result;
-                
-                // Mappiamo il barrato (strike) al tag <del> per poterlo rimuovere
                 const options = { 
                     ignoreEmptyParagraphs: true, 
                     styleMap: ["strike => del"] 
@@ -141,7 +166,6 @@
 
                 mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options)
                     .then(async (result) => {
-                        // Creiamo un parser HTML per analizzare le tabelle
                         const parser = new DOMParser();
                         const docDOM = parser.parseFromString(result.value, 'text/html');
                         const tables = docDOM.querySelectorAll('table');
@@ -150,75 +174,70 @@
                         let totalWordCount = 0;
                         let fullTextForStats = "";
 
-                        // Iteriamo su tutte le tabelle trovate
                         tables.forEach((table) => {
-                            const rows = table.querySelectorAll('tr');
-                            if (rows.length === 0) return;
+                            // 1. Costruisci la griglia corretta
+                            const grid = mapTableToGrid(table);
+                            if (grid.length === 0) return;
 
-                            // Cerchiamo la colonna "Audio" nell'intestazione (prima riga)
-                            const headerCells = rows[0].querySelectorAll('td, th');
+                            // 2. Trova l'indice della colonna Audio nella prima riga
                             let audioIdx = -1;
-                            headerCells.forEach((cell, i) => {
-                                if (cell.textContent.toLowerCase().trim().includes('audio')) {
-                                    audioIdx = i;
-                                }
-                            });
+                            const headerRow = grid[0];
+                            if (!headerRow) return;
 
-                            // Se abbiamo trovato la colonna Audio
+                            for (let i = 0; i < headerRow.length; i++) {
+                                if (headerRow[i] && headerRow[i].element.textContent.toLowerCase().trim().includes('audio')) {
+                                    audioIdx = i;
+                                    break;
+                                }
+                            }
+
                             if (audioIdx !== -1) {
                                 let tableTextRaw = "";
+                                const processedCells = new Set(); // Per evitare duplicati di celle unite
 
-                                // Estraiamo il testo da tutte le righe (saltando l'intestazione)
-                                rows.forEach((row, rowIndex) => {
-                                    if (rowIndex === 0) return; 
-                                    const cells = row.querySelectorAll('td');
-                                    if (cells[audioIdx]) {
-                                        // Rimuoviamo il testo barrato (<del>)
-                                        let html = cells[audioIdx].innerHTML.replace(/<del>.*?<\/del>/g, '');
-                                        // Convertiamo l'HTML della cella in testo semplice
+                                // 3. Itera sulla griglia usando l'indice corretto
+                                for (let r = 1; r < grid.length; r++) { // Salta header (r=0)
+                                    const cellObj = grid[r][audioIdx];
+                                    
+                                    // Se la cella esiste, è l'inizio di un merge (o cella singola) e non è già stata processata
+                                    if (cellObj && cellObj.isStart && !processedCells.has(cellObj.element)) {
+                                        processedCells.add(cellObj.element);
+                                        
+                                        let html = cellObj.element.innerHTML.replace(/<del>.*?<\/del>/g, '');
                                         const tmp = document.createElement('div');
                                         tmp.innerHTML = html;
                                         tableTextRaw += tmp.textContent + " ";
                                     }
-                                });
+                                }
 
-                                // Puliamo e formattiamo il testo della tabella
                                 const cleanedTableText = cleanAndFormatText(tableTextRaw);
 
                                 if (cleanedTableText.length > 0) {
-                                    // Aggiungiamo al conteggio parole globale
                                     fullTextForStats += cleanedTableText + " ";
-
-                                    // Creiamo il paragrafo per il file Word
-                                    // Usiamo TextRun semplice per la massima compatibilità e pulizia
                                     docParagraphs.push(new docx.Paragraph({
                                         children: [
                                             new docx.TextRun({
                                                 text: cleanedTableText,
                                                 font: "Calibri",
-                                                size: 24 // 12pt
+                                                size: 24 
                                             })
                                         ],
                                         alignment: docx.AlignmentType.JUSTIFIED,
-                                        spacing: { after: 400 } // Spazio vuoto dopo ogni blocco tabella (circa una riga vuota)
+                                        spacing: { after: 400 } 
                                     }));
                                 }
                             }
                         });
 
-                        // --- CALCOLO STATISTICHE ---
-                        // Divide per spazi per contare le parole
+                        // Calcoli finali
                         const wordsArray = fullTextForStats.trim().split(/\s+/).filter(w => w.length > 0);
                         totalWordCount = wordsArray.length;
-                        // Calcolo fascicoli: Parole / 1000 (con 1 decimale)
                         const fascicoliCount = (totalWordCount / 1000).toFixed(2);
 
-                        // Aggiorniamo l'interfaccia
                         wordCountDisplay.textContent = totalWordCount.toLocaleString('it-IT');
                         fascicoliDisplay.textContent = fascicoliCount.replace('.', ',');
                         statsPanel.classList.remove('hidden');
 
-                        // --- GENERAZIONE FILE ---
                         const doc = new docx.Document({
                             sections: [{
                                 properties: {},
@@ -227,15 +246,15 @@
                         });
 
                         const blob = await docx.Packer.toBlob(doc);
-                        saveAs(blob, `CLEAN_${selectedFile.name}`);
+                        saveAs(blob, `CLEAN_FIXED_${selectedFile.name}`);
                         
-                        statusMsg.textContent = "Elaborazione completata! Il file è stato scaricato.";
+                        statusMsg.textContent = "Elaborazione completata con correzione celle unite!";
                         statusMsg.className = "mt-4 text-sm font-medium text-green-600";
                         processBtn.disabled = false;
                     })
                     .catch(err => {
                         console.error(err);
-                        statusMsg.textContent = "Errore durante l'elaborazione del file.";
+                        statusMsg.textContent = "Errore durante l'elaborazione.";
                         statusMsg.className = "mt-4 text-sm font-medium text-red-600";
                         processBtn.disabled = false;
                     });
